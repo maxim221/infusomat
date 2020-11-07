@@ -14,6 +14,9 @@ AltSoftSerial altSerial;
 #define WIRE_STEPS_DEVICE 4
 #define TEMPERATURE_DEVICE 8
 
+#define DOSE_STEPS_RATIO 75
+
+
 OneWire oneWire_in(ONE_WIRE_BUS_1); 
 OneWire oneWire_out(ONE_WIRE_BUS_2);
 
@@ -44,6 +47,9 @@ boolean waitForAnswer = false;
 boolean calibrationComplete = false;
 
 boolean holdInject = false;
+
+boolean performingInjection = false;
+
 
 boolean newCommand = false;
 
@@ -157,14 +163,11 @@ void stopMotor(){
 
 void injectionDelayCounter(){
   if(holdInject){
-    
-  if(millis() - lastSendParamsTime >= injectionDelay){
-  sendParams = true;
-  injectionDelay=300000;
-  //Serial.println(injectionDelay);
-  holdInject = false;
-  
-  }
+    if(millis() - lastSendParamsTime >= injectionDelay){
+      sendParams = true;
+      injectionDelay=300000; 
+      holdInject = false; 
+    }
   }
 }
 
@@ -191,40 +194,33 @@ void nullValues(){
   injectionDelay = 300000;
 }
 
-void getTemp(){
-
-  if(millis() - lastTempTime >= tempDelay){
-  sensor_one.requestTemperatures();
-  sensor_two.requestTemperatures();
-  temp1 = sensor_one.getTempCByIndex(0);
-  temp2 = sensor_two.getTempCByIndex(0);
-  
-  lastTempTime = millis();
-  altSerial.println("initialisation");
-  altSerial.println("\n");
-  tempString = "speed";  
-  tempString += "temp1";
-  tempString += temp1;
-  tempString += "temp2";
-  tempString += temp2;
-  tempString += "end"; 
-  altSerial.println(tempString);
-  Serial.println(tempString);
+void sendTemp(){
+  if(millis() - lastTempTime >= tempDelay){ 
+    lastTempTime = millis();
+//    altSerial.println("initialisation");
+//    altSerial.println("\n");
+    tempString = "data";  
+    tempString += "temp1";
+    tempString += temp1;
+    tempString += "temp2";
+    tempString += temp2;
+    tempString += "end"; 
+    altSerial.println(tempString);
+    Serial.println(tempString);
   }
 }
 
+
 void feedback(){
-  
- if(altSerial.available()){
-  answer = altSerial.readStringUntil("\n");
-//  int beginningOfMessage = answer.indexOf("commandRecieved");
-//  answer.remove(0,beginningOfMessage);
-  
- if(answer == "commandRecieved"){
-Serial.println(answer);
- }
- }
- }
+  if(altSerial.available()){
+     answer = altSerial.readStringUntil("\n");
+//   int beginningOfMessage = answer.indexOf("commandRecieved");
+//   answer.remove(0,beginningOfMessage);
+     if(answer == "commandRecieved"){
+       Serial.println(answer);
+     }
+  }
+}
 
 void lowRes(){
   sensor_one.setResolution(9);
@@ -254,7 +250,6 @@ void errorCheck(){
     stopMotor();
     delay(3000);
     lcd.clear();
-    
   }
   if (temp2>=127 || temp1>=127){
     lcd.clear();
@@ -417,10 +412,10 @@ void confirmationScreen(){
     lcd.print(dose);
 
     if(encButtonState == false){
-    if(switchFF){
-      selectScreen = 4;
-      screenCleared = false;
-    }
+      if(switchFF){
+        selectScreen = 4;
+        screenCleared = false;
+      }
     }
 }
 
@@ -458,19 +453,19 @@ void startScreen(){
     lcd.print(" ");
     }
     if(encButtonState == false){
-    if(switchFF && start == false){
-    screenCleared = false;
-    firstDrawStart = true;
-    start = false;
-    selectScreen = 0;
-    }
-    if(switchFF && start){
-    screenCleared = false;
-    firstDrawStart = true;
-    start = false;
-    sendParams = true;
-    selectScreen = 5;
-    }
+      if(switchFF && start == false){
+        screenCleared = false;
+        firstDrawStart = true;
+        start = false;
+        selectScreen = 0;
+      }
+      if(switchFF && start){
+        screenCleared = false;
+        firstDrawStart = true;
+        start = false;
+        sendParams = true;
+        selectScreen = 5;
+      }
     }
 }
 
@@ -486,49 +481,49 @@ void stopScreen(){
     }
 
     if (newEnc<enc){
-    stopProcedure = true;
-    lcd.setCursor(0, 1);
-    lcd.print(" ");
-    lcd.setCursor(6, 1);
-    lcd.print(" ");
-    lcd.setCursor(7, 1);
-    lcd.print(">");
-    lcd.setCursor(15, 1);
-    lcd.print("<");
+      stopProcedure = true;
+      lcd.setCursor(0, 1);
+      lcd.print(" ");
+      lcd.setCursor(6, 1);
+      lcd.print(" ");
+      lcd.setCursor(7, 1);
+      lcd.print(">");
+      lcd.setCursor(15, 1);
+      lcd.print("<");
     }
     if (newEnc>enc){
-    stopProcedure = false;
-    lcd.setCursor(0, 1);
-    lcd.print(">");
-    lcd.setCursor(6, 1);
-    lcd.print("<");
-    lcd.setCursor(7, 1);
-    lcd.print(" ");
-    lcd.setCursor(15, 1);
-    lcd.print(" ");
+      stopProcedure = false;
+      lcd.setCursor(0, 1);
+      lcd.print(">");
+      lcd.setCursor(6, 1);
+      lcd.print("<");
+      lcd.setCursor(7, 1);
+      lcd.print(" ");
+      lcd.setCursor(15, 1);
+      lcd.print(" ");
     }
     if(encButtonState == false){
     if(switchFF){
-    if(stopProcedure == false){
-    screenCleared = false;
-    firstDrawStart = true;
-    selectScreen = 6;
-    }
-    if(stopProcedure){
-    screenCleared = false;
-    firstDrawStart = true;
-    nullValues();
-    
-    lcd.clear();
-    lcd.setCursor(3, 0);
-    lcd.print("Procedure");    
-    lcd.setCursor(3, 1);
-    lcd.print("Cancelled!");
-    stopMotor();
-    delay(1000);
-    selectScreen = 0;
-    stopProcedure = false;
-    }
+      if(!stopProcedure){
+        screenCleared = false;
+        firstDrawStart = true;
+        selectScreen = 6;
+      }
+      if(stopProcedure){
+        screenCleared = false;
+        firstDrawStart = true;
+        nullValues();
+        
+        lcd.clear();
+        lcd.setCursor(3, 0);
+        lcd.print("Procedure");    
+        lcd.setCursor(3, 1);
+        lcd.print("Cancelled!");
+        stopMotor();
+        delay(1000);
+        selectScreen = 0;
+        stopProcedure = false;
+      }
     }
     }
 }
@@ -565,8 +560,7 @@ void calibrationScreen(){
   lcd.print(elapsed / 1000);
 }
 
-
-int absDiff(int a, int b){
+float absDiff(float a, float b){
   if (a > b){
     return a-b;
   }
@@ -591,11 +585,18 @@ void checkAlarm(){
 }
 
 int coolDownLeft;
+int lastProcScreen;
 void procedureScreen2(){
+  if (lastProcScreen == 1){
+    lcd.clear();
+  }
+  
+  lastProcScreen = 2;
+  
   lcd.setCursor(0, 0);
   lcd.print("Th:");  
   lcd.print(threshold);
-  lcd.print("nD");
+  lcd.print("sC:");
   lcd.print(stepCounter);
   lcd.setCursor(0, 1);
   lcd.print("TCool:");
@@ -603,10 +604,15 @@ void procedureScreen2(){
 }
 
 void procedureScreen1(){
+  if (lastProcScreen == 2){
+    lcd.clear();
+  }
+  lastProcScreen = 1;
+  
   lcd.setCursor(0, 0);
-  lcd.print("T:");  
+  lcd.print("t:");  
   lcd.print(temp1);
-  lcd.print("-");
+  lcd.print("|");
   lcd.print(temp2);
   lcd.setCursor(0, 1);
   lcd.print("D:");
@@ -615,35 +621,38 @@ void procedureScreen1(){
   lcd.print(differenceT2);
 }
 
+void procedureFinishedScreen(){
+  clrScreen();
+  highRes();  
+  lcd.setCursor(0, 0);
+  lcd.print("Procedure finished"); 
+  delay(1000);
+  selectScreen = 6;
+  screenCleared = false;
+}
+
 const int procedureScreenSwitchRate = 5000;
 void procedureScreen(){
   clrScreen();
   highRes();
-  
-//  if(altSerial.available()>0){
-//      String feedBack = altSerial.readStringUntil("\n");
-//      Serial.println(feedBack);
-//    if(feedBack == "complete!"){
-//      selectScreen=0;  
-//    }
-//  }
   if(switchFF){
-    selectScreen=7;
+    selectScreen = 7;
     screenCleared = false;
   }
-  
-  differenceT1 = absDiff(temp1,calibratedT1);
-  differenceT2 = absDiff(temp2,calibratedT2);
-  
-  summedDifferenceT = differenceT1+differenceT2;
+  evaluateTDifference();//test
   checkAlarm();
-  
-  if  ((millis() / procedureScreenSwitchRate) % 2 == 0){
-    procedureScreen1();   
+   
+  if ((millis() / procedureScreenSwitchRate) % 2 == 0) {
+    procedureScreen1();
   }else{
-    procedureScreen2();   
+    procedureScreen2();
   }
-  
+
+  if (performingInjection && dose * DOSE_STEPS_RATIO - stepCounter < 2){ 
+     selectScreen = 8;
+     performingInjection = false;
+     screenCleared = false;
+  } 
 }
 
 const int coolDown = 300000;
@@ -651,153 +660,163 @@ void sendParamsOnce(){
   String incoming = "";
 //  FB = analogRead(A2);
 //  Serial.println(FB);
-  if (coolDownLeft > 0){
+  if (coolDownLeft > 0) {
     return;
   }
-  dataString = "";
-  dataString = "speed";
+  dataString = "cmnd";
   dataString += infusionSpeed;
   dataString += "threshold";
   dataString += threshold;
   dataString += "dose";
   dataString += dose;
-  dataString += "end";   
+  dataString += "end";
   altSerial.println(dataString);
+  
+  Serial.print("Sending command: ");
   Serial.println(dataString);
-//  Serial.print("infusionSpeed:");
-//  Serial.println(infusionSpeed);  
-//  Serial.print("infusionDelayCorrectionMinutes:");
-//  Serial.println(infusionDelayCorrectionMinutes);
-
   
   infusionDelayCorrectionMinutes = int(infusionSpeed)*60000;  
-//  Serial.print("infusionDelayCorrectionMinutes:");
-//  Serial.println(infusionDelayCorrectionMinutes);
-
 
   secondsIntermediateValue = (infusionSpeed - int(infusionSpeed));
-//  Serial.print("secondsIntermediateValue:");
-//  Serial.println(secondsIntermediateValue);
-
 
   infusionDelayCorrectionSeconds = secondsIntermediateValue*100000;
   infusionDelayCorrectionSeconds = infusionDelayCorrectionSeconds+1;
-//  Serial.print("infusionDelayCorrectionSeconds:");
-//  Serial.println(infusionDelayCorrectionSeconds);
-  
-  
+
   infusionDelayCorrection = infusionDelayCorrectionMinutes + infusionDelayCorrectionSeconds;
-//  Serial.print("infusionDelayCorrection:");
-//  Serial.println(infusionDelayCorrection);
   injectionDelay = injectionDelay+infusionDelayCorrection;
-//  Serial.print("injectionDelay:");
-//  Serial.println(injectionDelay);
-//  injectionDelay = injectionDelay + infusionDelayCorrection;
-//  Serial.println(injectionDelay);
   sendParams = false;
   lastSendParamsTime = millis();
   holdInject = true;
-
+  performingInjection = true;
+  
   coolDownLeft = coolDown;
-
 }
 
 
+int refreshCoolDownTimestamp;
 void refreshCoolDown(){
+  const int rate = 1000;
+  if (!timeHasCome(rate, &refreshCoolDownTimestamp)){
+    return;
+  }
   if (coolDownLeft > 0){
-    coolDownLeft = coolDown - (millis() - lastSendParamsTime);
+    coolDownLeft -= (millis() - lastSendParamsTime);
   }else{
     coolDownLeft = 0;
   }
 }
 
-
 bool timeHasCome(int rate, int* lastTime){
-  int elapsed;
-  if (*lastTime == 0){
-    *lastTime = millis();
-  }
+  int elapsed; 
   elapsed = millis() - *lastTime;
-  
-  return elapsed > rate;
+  if (elapsed > rate){
+    *lastTime = millis();
+    return true;  
+  }
+  return false; 
 }
 
-
-long stepCount;
 int getI2CDataStartTimestamp;
-void getI2CData(){
-  const int rate = 1000;
+void getStepCount(){
+  const int rate = 500;
   if (!timeHasCome(rate, &getI2CDataStartTimestamp)){
     return;
   }
  
-  int newStepCount = 0;
-  
-  float intVal;
-  int datalen = (sizeof intVal); 
+  int newStepCount = 0; 
+  int datalen = (sizeof newStepCount); 
   
   Wire.requestFrom(WIRE_STEPS_DEVICE, datalen, true); 
   if(Wire.available()==datalen){ // got correct size of packet
-     I2C_readAnything(intVal);
+     I2C_readAnything(newStepCount);
+  }
+
+  stepCounter = newStepCount; 
+}
+
+
+void getTemp(){
+  const int rate = 500;
+  if (!timeHasCome(rate, &getI2CDataStartTimestamp)){
+    return;
   }
   
-  float floatVal;
-  float floatVal2;
-  datalen = (sizeof floatVal)+(sizeof floatVal2); //вычисление кол-ва данных которые надо считать
-   Wire.requestFrom(TEMPERATURE_DEVICE,datalen,true);
-   if(Wire.available()==datalen){ // got correct size of packet
-     I2C_readAnything (floatVal);
-     I2C_readAnything (floatVal2);
-     }
-  
-  Serial.println("Float value:");
-  Serial.println(floatVal);
-  Serial.println("Float2 value:");
-  Serial.println(floatVal2);
-  Serial.println("Int value:");
-  Serial.println(intVal);
+  int datalen = (sizeof temp1)+(sizeof temp2); //вычисление кол-ва данных которые надо считать
+  Wire.requestFrom(TEMPERATURE_DEVICE,datalen,true);
+  if(Wire.available()==datalen){ // got correct size of packet
+    I2C_readAnything (temp1);
+    I2C_readAnything (temp2);
+  }
+ 
 }
  
+volatile int getDebugTimestamp;
+void debug(){
+  const int rate = 1000;
+  if (!timeHasCome(rate, &getDebugTimestamp)){
+    return;
+  }
+  
+  String debug;
+  debug = "DEBUG calibrationComplete:"; debug += calibrationComplete;
+//  debug += " summedDifferenceT:"; debug += summedDifferenceT;
+//  debug += " threshold:";  debug += threshold;
+  debug += " sendParams:";  debug += sendParams;
+  debug += " coolDownLeft:";  debug += coolDownLeft;
+  debug += " holdInject:"; debug += holdInject;
+  debug += " injectionDelay:";  debug += injectionDelay;
+  debug += " stepCounter:";  debug += stepCounter;
+  debug += " steps left:";  debug += dose * DOSE_STEPS_RATIO - stepCounter;
+  
+  Serial.println(debug);
+}
+
+void evaluateTDifference(){
+  differenceT1 = absDiff(temp1,calibratedT1);
+  differenceT2 = absDiff(temp2,calibratedT2);
+  
+  summedDifferenceT = differenceT1+differenceT2;
+}
 
 void loop() {
   refreshCoolDown();
   getTemp();
+  sendTemp();
   getEncValue();
   errorCheck();
-  getI2CData();
   injectionDelayCounter();
-  if(calibrationComplete){
-  if(summedDifferenceT>threshold){                  //startInjection Trigger 
-    if(sendParams){
+  debug();
+  if (calibrationComplete && (summedDifferenceT > threshold) && sendParams) {                  //startInjection Trigger 
       sendParamsOnce();
-    }
-  }
   }
   
   switch (selectScreen){
-  case 0:
-  medicineDoseScreen();
-  break;
-  case 1:
-  timeScreen();
-  break;
-  case 2:
-  exceedingThresholdScreen();
-  break;  
-  case 3:
-  confirmationScreen();
-  break;
-  case 4:
-  startScreen();
-  break;  
-  case 5:
-  calibrationScreen();
-  break;
-  case 6:
-  procedureScreen();
-  break;
-  case 7:
-  stopScreen();
-  break;
+    case 0:
+      medicineDoseScreen();
+      break;
+    case 1:
+      timeScreen();
+      break;
+    case 2:
+      exceedingThresholdScreen();
+      break;  
+    case 3:
+      confirmationScreen();
+      break;
+    case 4:
+      startScreen();
+      break;  
+    case 5:
+      calibrationScreen();
+      break;
+    case 6:
+      procedureScreen();
+      break;
+    case 7:
+      stopScreen();
+      break;
+    case 8:
+      procedureFinishedScreen();
+      break;
   }
 }
